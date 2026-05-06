@@ -18,30 +18,36 @@ function MainPage() {
             const storedToken = localStorage.getItem("token");
             setToken(storedToken);
 
-            try {
-                const res = await fetch("http://localhost:3000/posts?limit=50");
-                const data = await res.json();
-
-                if(res.ok)
-                    setItems(data);
-
-            } catch (err) {
-                console.log("Posts error:", err);
-            }
+            const headers = {
+                Authorization: `Bearer ${storedToken}`
+            };
 
             try {
-                const res = await fetch("http://localhost:3000/account/me", {
-                    headers: {
-                        Authorization: `Bearer ${storedToken}`
-                    }
-                });
-                const data = await res.json();
+                const userRes = await fetch("http://localhost:3000/account/me", { headers });
+                const userData = await userRes.json();
 
-                if(res.ok)
-                    setUsername(data.username);
-                
+                let usernameAux = null;
+
+                if (userRes.ok) {
+                    usernameAux = userData.username;
+                    setUsername(usernameAux);
+                }
+
+                const typeOfFeed = usernameAux ? "/get-user-feed" : "";
+
+                const postsRes = await fetch(
+                    `http://localhost:3000/posts${typeOfFeed}?limit=50`,
+                    { headers }
+                );
+
+                const postsData = await postsRes.json();
+
+                if (postsRes.ok) {
+                    setItems(postsData);
+                }
+
             } catch (err) {
-                console.log("User error:", err);
+                console.log("Error:", err);
             }
         };
 

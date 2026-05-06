@@ -27,6 +27,17 @@ export class PostsController {
     }
 
     @UseGuards(JwtAuthGuard)
+    @Get("get-user-feed")
+    getUserFeed(
+        @Req() req
+    ) {
+        return this.postsService.getUserFeed(
+            req.user.id,
+            req.query.limit
+        )
+    }
+
+    @UseGuards(JwtAuthGuard)
     @Post()
     createPost(
         @Req() req,
