@@ -65,6 +65,7 @@ export class PostsService {
                         FROM follows 
                         WHERE follows.followed_id = posts.user_id
                         AND follows.follower_id = $2
+                        AND follows.deleted_at IS NULL
                     )
                 ORDER BY posts.created_at DESC
                 LIMIT $1;
