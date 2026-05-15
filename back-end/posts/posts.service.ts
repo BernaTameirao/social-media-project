@@ -1,15 +1,14 @@
 import {
     Injectable,
-    InternalServerErrorException,
-    Inject
+    InternalServerErrorException
 } from '@nestjs/common';
 
-import { Pool } from 'pg';
+import { PostsRepository } from './posts.repository';
 
 @Injectable()
 export class PostsService {
     constructor(
-        @Inject('PG_POOL') private readonly pool: Pool
+        private readonly postsRepository: PostsRepository
     ) {}
 
     async getPosts(
@@ -18,22 +17,11 @@ export class PostsService {
         try {
             const limit = parseInt(limitQuery) || 20;
 
-            const result = await this.pool.query(
-                `
-                SELECT 
-                    posts.id,
-                    posts.content,
-                    posts.created_at,
-                    users.username
-                FROM posts
-                JOIN users ON posts.user_id = users.id
-                ORDER BY posts.created_at DESC
-                LIMIT $1
-                `,
-                [limit]
+            const result = await this.postsRepository.getPosts(
+                limit
             );
 
-            return result.rows;
+            return result;
         } catch (err) {
 
             throw new InternalServerErrorException(
@@ -49,31 +37,12 @@ export class PostsService {
         try {
             const limit = parseInt(limitQuery) || 20;
 
-            const result = await this.pool.query(
-                `
-                SELECT 
-                    posts.id,
-                    posts.content,
-                    posts.created_at,
-                    users.username
-                FROM posts
-                JOIN users ON posts.user_id = users.id
-                WHERE 
-                    posts.user_id = $2
-                    OR EXISTS (
-                        SELECT 1 
-                        FROM follows 
-                        WHERE follows.followed_id = posts.user_id
-                        AND follows.follower_id = $2
-                        AND follows.deleted_at IS NULL
-                    )
-                ORDER BY posts.created_at DESC
-                LIMIT $1;
-                `,
-                [limit, user_id]
+            const result = await this.postsRepository.getUserFeed(
+                user_id,
+                limit
             );
 
-            return result.rows;
+            return result;
         } catch (err) {
 
             throw new InternalServerErrorException(
@@ -88,28 +57,18 @@ export class PostsService {
     ) {
         try {
 
-            const insertion = await this.pool.query(
-                "INSERT INTO posts (content, user_id) VALUES ($1, $2) RETURNING *",
-                [content, user_id]
+            const insertion = await this.postsRepository.createPost_Insert(
+                user_id,
+                content
             );
 
-            const postId = insertion.rows[0].id;
+            const postId = insertion[0].id;
 
-            const result = await this.pool.query(
-                `
-                SELECT 
-                    posts.id,
-                    posts.content,
-                    posts.created_at,
-                    users.username
-                FROM posts
-                JOIN users ON posts.user_id = users.id
-                WHERE posts.id = $1
-                `,
-                [postId]
+            const result = await this.postsRepository.createPost_Select(
+                postId
             );
 
-            return result.rows[0];
+            return result[0];
         } catch (err) {
             throw new InternalServerErrorException(
                 "Create Post operation failed"

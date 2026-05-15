@@ -1,18 +1,17 @@
 import {
     Injectable,
     BadRequestException,
-    InternalServerErrorException,
-    Inject
+    InternalServerErrorException
 } from '@nestjs/common';
 
 import { JwtService } from '@nestjs/jwt';
-import { Pool } from 'pg';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
+import { AuthRepository } from './auth.repository';
 
 @Injectable()
 export class AuthService{
     constructor(
-        @Inject('PG_POOL') private readonly pool: Pool,
+        private readonly authRepository: AuthRepository,
         private readonly jwtService: JwtService
     ) {}
 
@@ -26,12 +25,12 @@ export class AuthService{
             const hashed = await bcrypt.hash(password, 10);
         
             // Sends the user data to the database.
-            const result = await this.pool.query(
-                "INSERT INTO users (username, password_hash) VALUES ($1, $2) RETURNING id, username",
-                [username, hashed]
+            const result = await this.authRepository.register(
+                username,
+                hashed
             );
         
-            return result.rows[0];
+            return result[0];
         } catch (err) {
 
             if (err.code === '23505') { 
@@ -52,12 +51,11 @@ export class AuthService{
     ) { 
         try {         
             // Gets the data related to the given username.
-            const result = await this.pool.query(
-            "SELECT * FROM users WHERE username = $1",
-            [username]
+            const result = await this.authRepository.login(
+                username
             );
         
-            const user = result.rows[0];
+            const user = result[0];
         
             // If the username isn't present on the database, return error.
             if (!user) {

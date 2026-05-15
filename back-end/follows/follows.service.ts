@@ -1,16 +1,18 @@
 import {
     Injectable,
     BadRequestException,
-    InternalServerErrorException,
-    Inject
+    InternalServerErrorException
 } from '@nestjs/common';
 
-import { Pool } from 'pg';
+import { DomainEventsService } from 'events/domain-events.service';
+import { EVENTS } from 'events/events.constants';
+import { FollowsRepository } from './follows.repository';
 
 @Injectable()
 export class FollowsService {
     constructor(
-        @Inject('PG_POOL') private readonly pool: Pool
+        private readonly followsRepository: FollowsRepository,
+        private readonly domainEvents: DomainEventsService
     ) {}
 
     async createNewFollowing(
@@ -24,45 +26,35 @@ export class FollowsService {
                 );
             }
 
-            const check = await this.pool.query(
-                `
-                SELECT deleted_at
-                FROM follows
-                WHERE follower_id = $1
-                  AND followed_id = $2
-                  AND deleted_at IS NULL
-                LIMIT 1
-                `,
-                [follower_id, followed_id]
+            const check = await this.followsRepository.createNewFollowing_Check(
+                follower_id,
+                followed_id
             );
 
             let result;
 
-            if (check.rows.length === 0) {
-                result = await this.pool.query(
-                    `
-                    INSERT INTO follows
-                        (follower_id, followed_id)
-                    VALUES ($1, $2)
-                    RETURNING *
-                    `,
-                    [follower_id, followed_id]
-                );
+            if (check.length === 0) {
+                result = await this.followsRepository.createNewFollowing_Follow(
+                    follower_id,
+                    followed_id
+                )
             } else {
-                result = await this.pool.query(
-                    `
-                    UPDATE follows
-                    SET deleted_at = NOW()
-                    WHERE follower_id = $1
-                      AND followed_id = $2
-                      AND deleted_at IS NULL
-                    RETURNING *
-                    `,
-                    [follower_id, followed_id]
-                );
+                result = await this.followsRepository.createNewFollowing_Unfollow(
+                    follower_id,
+                    followed_id
+                )
             }
 
-            return result.rows[0];
+            this.domainEvents.publish(
+                EVENTS.USER_FOLLOWED,
+                {
+                    actor_id: follower_id,
+                    recipient_id: followed_id,
+                    type: "USER_FOLLOWED"
+                }
+            )
+
+            return result[0];
 
         } catch (err) {
 

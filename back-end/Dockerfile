@@ -1,10 +1,12 @@
-FROM node:22
+FROM node:20-slim
 
 WORKDIR /app
 
-COPY package.json pnpm-lock.yaml ./
-
 RUN npm install -g pnpm
+
+COPY package.json pnpm-lock.yaml* ./
+
+RUN pnpm config set only-allow-rc true
 RUN pnpm install
 
 COPY . .

@@ -3,6 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import './MainPage.css';
 
 import { PopUp } from '../Components/PopUp/PopUp';
+import { formatNotification } from '../utils/notifications';
 
 function MainPage() {
 
@@ -11,6 +12,7 @@ function MainPage() {
     const [token, setToken] = useState(null);
     const [username, setUsername] = useState(null);
     const [isPopUp, setIsPopUp] = useState(false);
+    const [notifications, setNotifications] = useState([]);
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -44,6 +46,18 @@ function MainPage() {
 
                 if (postsRes.ok) {
                     setItems(postsData);
+                }
+
+                if (usernameAux) {
+                    const notificationsRes = await fetch(
+                        `http://localhost:3000/notifications?limit=10`,
+                        { headers }
+                    );
+
+                    const notificationsData = await notificationsRes.json();
+                    if (notificationsRes.ok) {
+                        setNotifications(notificationsData);
+                    }
                 }
 
             } catch (err) {
@@ -133,25 +147,46 @@ function MainPage() {
                             <line x1="21" y1="21" x2="16.65" y2="16.65"/>
                         </svg>
                     </div>
-                    <div className="input-button" onClick={handlePopUp}>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M18 8a6 6 0 10-12 0c0 7-3 7-3 7h18s-3 0-3-7"/>
-                            <path d="M13.73 21a2 2 0 01-3.46 0"/>
-                        </svg>
-                    </div>
-                    <PopUp open={isPopUp} onClose={handlePopUp}>
-                    </PopUp>
+                    { username ? 
+                        (   <>
+                            <div className="input-button" onClick={handlePopUp}>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M18 8a6 6 0 10-12 0c0 7-3 7-3 7h18s-3 0-3-7"/>
+                                    <path d="M13.73 21a2 2 0 01-3.46 0"/>
+                                </svg>
+                            </div>
+                            <PopUp open={isPopUp} onClose={handlePopUp}>
+                                { notifications.length !== 0 ? (
+                                    notifications
+                                        .map((item, index) => (
+                                            <div>
+                                                {formatNotification(item)}
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <div>{"There are no notifications for you yet :("}</div>
+                                    )
+                                }
+                            </PopUp>
+                            </>
+                        ) : (<></>)
+                    }
                 </div>
             </div>
             <div className="horizontal-line"/>
             <div className="messages-feed-container">
-                {items
-                    .filter(item => item.content.toLowerCase().includes(inputs[0].toLowerCase()))
-                    .map((item, index) => (
-                        <Link to={`/account/${item.username}`} className="clean-link">
-                            <div key={index} className={`message-container-${index%2}`}>{item.username} disse: {item.content}</div>
-                        </Link>
-                ))}
+                { items.length !== 0 ? (
+                    items
+                        .filter(item => item.content.toLowerCase().includes(inputs[0].toLowerCase()))
+                        .map((item, index) => (
+                            <Link to={`/account/${item.username}`} className="clean-link">
+                                <div key={index} className={`message-container-${index%2}`}>{item.username} disse: {item.content}</div>
+                            </Link>
+                        ))
+                    ) : (
+                        <div className="message-container-1">{"There are no messages yet :("}</div>
+                    )
+                }
             </div>
             <div className="horizontal-line"/>
             <div className="search-bar-div">
